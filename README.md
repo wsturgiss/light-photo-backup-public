@@ -1,3 +1,8 @@
+<img width="1080" height="1240" alt="1000000307" src="https://github.com/user-attachments/assets/a0440ef8-218e-40bb-81fc-f662a72e6d30" />
+<img width="1080" height="1240" alt="1000000308" src="https://github.com/user-attachments/assets/fbb505e0-d57f-4e2a-8866-b8e1ded5d61a" />
+<img width="1080" height="1240" alt="1000000309" src="https://github.com/user-attachments/assets/a915bf47-4268-4fa1-b9cc-9a8cd959447b" />
+
+
 # Photo Backup
 
 Photo Backup is a minimal, text-only Android application for Light Phone III that discovers eligible photos and appends them to the connected user's Google Photos library. It has no gallery, thumbnails, previews, downloads, deletion, or Google Photos browsing. It works without Google Play Services.
