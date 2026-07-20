@@ -1,0 +1,2 @@
+sdk.dir=/path/to/Android/sdk
+PHOTO_BACKUP_AUTH_SERVER_URL=http://127.0.0.1:8787

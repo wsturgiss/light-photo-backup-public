@@ -1,0 +1,25 @@
+# Local secrets
+.env
+**/.env
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+
+# Android local config
+local.properties
+
+# Node
+node_modules/
+dist/
+
+# Android/Gradle build output
+.gradle/
+build/
+**/build/
+
+# macOS
+.DS_Store
