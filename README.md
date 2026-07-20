@@ -1,8 +1,3 @@
-<img width="1080" height="1240" alt="1000000307" src="https://github.com/user-attachments/assets/a0440ef8-218e-40bb-81fc-f662a72e6d30" />
-<img width="1080" height="1240" alt="1000000308" src="https://github.com/user-attachments/assets/fbb505e0-d57f-4e2a-8866-b8e1ded5d61a" />
-<img width="1080" height="1240" alt="1000000309" src="https://github.com/user-attachments/assets/a915bf47-4268-4fa1-b9cc-9a8cd959447b" />
-
-
 # Photo Backup
 
 Photo Backup is a minimal, text-only Android application for Light Phone III that discovers eligible photos and appends them to the connected user's Google Photos library. It has no gallery, thumbnails, previews, downloads, deletion, or Google Photos browsing. It works without Google Play Services.
@@ -38,6 +33,14 @@ The complete flow is working on a Light Phone III:
 - Wi-Fi-only backup is the default; a persistent cellular setting and one-time cellular action are available.
 
 The public source tree intentionally has no auth-server URL configured. A first build therefore opens in the safe **Server not configured** state. Each operator must deploy a server and set its URL in ignored `android/local.properties` before pairing or uploading.
+
+## Screenshots
+
+<p align="center">
+  <img src="./docs/images/1000000307.png" width="240" alt="Photo Backup settings and current status" />
+  <img src="./docs/images/1000000308.png" width="240" alt="Photo Backup connected account and backup status" />
+  <img src="./docs/images/1000000309.png" width="240" alt="Photo Backup periodic frequency choices" />
+</p>
 
 ## Privacy and upload policy
 
