@@ -9,6 +9,18 @@ This repository contains two components:
 
 The Android app cannot be used by itself. Each installation needs access to a configured auth server because Google web OAuth client secrets and refresh tokens must not be embedded in an APK.
 
+## Before you begin
+
+This is a self-hosted source project, not a universal APK download. Setting up your own copy means you will:
+
+1. fork or clone this repository;
+2. create a Google Cloud web OAuth client;
+3. deploy the included auth server with persistent storage and your private secrets;
+4. build the Android app with that server's HTTPS URL; and
+5. install the APK and pair your Google account.
+
+No photo is uploaded during compilation or automated testing. Real uploads begin only after the phone is paired and a backup runs.
+
 ## Current status
 
 The complete flow is working on a Light Phone III:
@@ -71,7 +83,7 @@ Pairing uses expiring codes, CSRF state, PKCE, and a one-time OAuth-start token.
 
 You need:
 
-- a private GitHub fork or clone of this repository;
+- a fork or clone of this repository;
 - Node.js 20–22 and npm;
 - Android Studio or an Android SDK with JDK 17 or 21;
 - ADB access to the Light Phone III;
@@ -103,7 +115,7 @@ Do not create an Android OAuth client for this flow and never place the web clie
 
 ### 3. Deploy the auth server to Railway
 
-1. Create a Railway project from your private GitHub repository.
+1. Create a Railway project from your fork or repository. Keep any customized fork private if you plan to store private operational notes there, but never commit secrets even to a private repository.
 2. Set the service root directory to `auth-server`.
 3. Set the build command to `npm ci && npm run build`.
 4. Set the start command to `npm start`.
@@ -156,7 +168,7 @@ cd android
 ./gradlew testDebugUnitTest assembleDebug
 ```
 
-The debug APK is created at:
+From the repository root, the debug APK is created at:
 
 ```text
 android/app/build/outputs/apk/debug/app-debug.apk
@@ -168,6 +180,8 @@ Install it without clearing existing app data:
 adb devices
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+The install command above assumes your terminal is still inside `android/`.
 
 The update will succeed only when the installed application was signed with the same key. Do not uninstall casually: uninstalling erases the local backup ledger and device credential.
 
