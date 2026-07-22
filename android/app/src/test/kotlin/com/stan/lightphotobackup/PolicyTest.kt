@@ -7,6 +7,8 @@ import com.stan.lightphotobackup.media.*
 import com.stan.lightphotobackup.ui.formatDate
 import com.stan.lightphotobackup.ui.*
 import com.stan.lightphotobackup.backup.BackupScheduler
+import com.stan.lightphotobackup.backup.BackupProvider
+import com.stan.lightphotobackup.immich.ImmichRepository
 import com.stan.lightphotobackup.settings.PERIODIC_FREQUENCY_MINUTES
 import com.stan.lightphotobackup.settings.validPeriodicMinutes
 import androidx.work.*
@@ -29,5 +31,7 @@ class PolicyTest {
  @Test fun workInfoReachesVisibleUiStates(){assertEquals(ManualStatus.WAITING_FOR_NETWORK,manualStatusFor(WorkInfo.State.ENQUEUED));assertEquals(ManualStatus.RUNNING,manualStatusFor(WorkInfo.State.RUNNING));assertEquals(ManualStatus.SUCCEEDED,manualStatusFor(WorkInfo.State.SUCCEEDED));assertEquals(ManualStatus.AUTHORIZATION_EXPIRED,manualStatusFor(WorkInfo.State.FAILED,"authorization_expired"));assertEquals(ManualStatus.FAILED,manualStatusFor(WorkInfo.State.FAILED))}
  @Test fun repeatedTapsAreBoundedAndButtonReenables(){assertFalse(canStartManual(ManualStatus.RUNNING,false));assertFalse(canStartManual(ManualStatus.WAITING_FOR_NETWORK,false));assertTrue(canStartManual(ManualStatus.WAITING_FOR_NETWORK,true));assertTrue(canStartManual(ManualStatus.SUCCEEDED,false));assertTrue(canStartManual(ManualStatus.FAILED,false))}
  @Test fun periodicFrequenciesAreLegalAndDefaultToThirtyMinutes(){assertEquals(listOf(15,30,60,360,1440),PERIODIC_FREQUENCY_MINUTES);assertTrue(PERIODIC_FREQUENCY_MINUTES.all{it>=15});assertEquals(30,validPeriodicMinutes(null));assertEquals(30,validPeriodicMinutes(7));assertEquals(360,validPeriodicMinutes(360))}
+ @Test fun providerDefaultsToGooglePhotosForNewOrUnknownPreferences(){assertEquals(BackupProvider.GOOGLE_PHOTOS,BackupProvider.fromStoredValue(null));assertEquals(BackupProvider.GOOGLE_PHOTOS,BackupProvider.fromStoredValue("removed_provider"));assertEquals(BackupProvider.GOOGLE_PHOTOS,BackupProvider.fromStoredValue("GOOGLE_PHOTOS"));assertEquals(listOf(BackupProvider.GOOGLE_PHOTOS,BackupProvider.IMMICH),BackupProvider.available)}
+ @Test fun immichUrlAddsHttpsAndRemovesTrailingSlash(){assertEquals("https://photos.example.com",ImmichRepository.normalizeUrl(" photos.example.com/ "));assertEquals("https://photos.example.com",ImmichRepository.normalizeUrl(" https://photos.example.com/ "))}
  private fun item(id:Long,volume:String,path:String)=DiscoveryItem(volume,id,path)
 }

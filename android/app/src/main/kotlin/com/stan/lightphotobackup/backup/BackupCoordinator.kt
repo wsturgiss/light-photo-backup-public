@@ -4,19 +4,20 @@ import android.net.Uri
 import android.util.Log
 import com.stan.lightphotobackup.BuildConfig
 import com.stan.lightphotobackup.database.*
-import com.stan.lightphotobackup.google.*
+import com.stan.lightphotobackup.google.UploadException
 import com.stan.lightphotobackup.media.*
 import com.stan.lightphotobackup.pairing.PairingRepository
 import com.stan.lightphotobackup.settings.SettingsRepository
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 data class BackupResult(val discovered:Int,val uploaded:Int,val failed:Int,val retryNeeded:Boolean=false,val authorizationExpired:Boolean=false)
-class BackupCoordinator(private val context:Context,private val db:BackupDatabase,private val media:CameraMediaRepository,private val pairing:PairingRepository,private val uploader:GooglePhotosUploader,private val settings:SettingsRepository){
+class BackupCoordinator(private val context:Context,private val db:BackupDatabase,private val media:CameraMediaRepository,private val credential:(suspend (BackupProvider)->BackupCredential),private val uploaders:Map<BackupProvider,BackupUploader>,private val settings:SettingsRepository){
  companion object{private val mutex=Mutex();const val SETTLE_MS=30_000L}
  suspend fun discover():Int=mutex.withLock { withContext(Dispatchers.IO) { val now=System.currentTimeMillis();val scan=media.scan();val records=scan.photos.map { BackupRecord(mediaStoreId=it.id,mediaStoreVolume=it.volume,contentUri=it.uri.toString(),displayName=it.name,relativePath=it.relativePath,mimeType=it.mimeType,sizeBytes=it.size,dateTakenMillis=it.dateTaken,dateAddedSeconds=it.dateAdded,dateModifiedSeconds=it.dateModified,width=it.width,height=it.height,createdAtMillis=now,updatedAtMillis=now) };val inserted=db.records().insert(records).count { it>0 };val repaired=scan.photos.sumOf{db.records().repairSize(it.volume,it.id,it.size,now)};if(scan.photos.isNotEmpty())db.records().markMissing(scan.photos.map { it.uri.toString() },now);val pending=db.records().pendingCount();db.summary().save(BackupSummary(lastScanMillis=now,discovered=inserted,waiting=pending,operation="Idle",pathCategories="Pictures/Light, Pictures/Screenshots"));if(BuildConfig.DEBUG)Log.i("PhotoBackupMedia","database already=${records.size-inserted} inserted=$inserted repairedSizes=$repaired pending=$pending");inserted } }
  suspend fun run(): BackupResult = mutex.withLock { withContext(Dispatchers.IO) {
-  val now=System.currentTimeMillis();val recovered=db.records().recoverInterrupted(now);if(BuildConfig.DEBUG&&recovered>0)Log.i("PhotoBackupWorker","recovered interrupted=$recovered"); val scan=media.scan();val photos=scan.photos
+  val now=System.currentTimeMillis();val provider=settings.flow.first().provider;val uploader=checkNotNull(uploaders[provider]) { "Selected backup provider is unavailable" };val credential=credential(provider);val recovered=db.records().recoverInterrupted(now);if(BuildConfig.DEBUG&&recovered>0)Log.i("PhotoBackupWorker","recovered interrupted=$recovered"); val scan=media.scan();val photos=scan.photos
   val records=photos.map { BackupRecord(mediaStoreId=it.id,mediaStoreVolume=it.volume,contentUri=it.uri.toString(),displayName=it.name,relativePath=it.relativePath,mimeType=it.mimeType,sizeBytes=it.size,dateTakenMillis=it.dateTaken,dateAddedSeconds=it.dateAdded,dateModifiedSeconds=it.dateModified,width=it.width,height=it.height,createdAtMillis=now,updatedAtMillis=now) }
   val inserted=db.records().insert(records).count { it>0 };val alreadyInDatabase=records.size-inserted
   val repairedSizes=photos.sumOf{db.records().repairSize(it.volume,it.id,it.size,now)}
@@ -31,13 +32,12 @@ class BackupCoordinator(private val context:Context,private val db:BackupDatabas
    try {
     val fingerprint=PhotoFingerprint.calculate(context.contentResolver,Uri.parse(item.contentUri),item.sizeBytes,item.mimeType)
     if(db.records().uploadedFingerprint(fingerprint)) { db.records().updateState(item.id,BackupStatus.UPLOADED,fingerprint=fingerprint,uploadedAt=System.currentTimeMillis(),now=System.currentTimeMillis()); continue }
-    val access=pairing.accessToken()
-    val tokenFresh=item.status==BackupStatus.AWAITING_MEDIA_CREATION && item.uploadToken!=null && item.uploadTokenCreatedAtMillis?.let { System.currentTimeMillis()-it<23*60*60_000 }==true
+     val tokenFresh=item.status==BackupStatus.AWAITING_MEDIA_CREATION && item.uploadToken!=null && item.uploadTokenCreatedAtMillis?.let { System.currentTimeMillis()-it<23*60*60_000 }==true
     val uploadToken = if(tokenFresh) { item.uploadToken!! } else {
      db.records().updateState(item.id,BackupStatus.UPLOADING_BYTES,fingerprint=fingerprint,attemptDelta=1,attemptAt=System.currentTimeMillis(),now=System.currentTimeMillis())
-     uploader.uploadBytes(access,Uri.parse(item.contentUri),item.mimeType,item.sizeBytes).also { db.records().updateState(item.id,BackupStatus.AWAITING_MEDIA_CREATION,fingerprint=fingerprint,token=it,tokenAt=System.currentTimeMillis(),now=System.currentTimeMillis()) }
+      uploader.uploadBytes(credential,item).also { db.records().updateState(item.id,BackupStatus.AWAITING_MEDIA_CREATION,fingerprint=fingerprint,token=it,tokenAt=System.currentTimeMillis(),now=System.currentTimeMillis()) }
     }
-    val googleId=uploader.create(access,uploadToken,item.displayName?:"LightPhone-${item.id}")
+    val googleId=uploader.create(credential,uploadToken,item.displayName?:"LightPhone-${item.id}")
     db.records().updateState(item.id,BackupStatus.UPLOADED,fingerprint=fingerprint,googleId=googleId,uploadedAt=System.currentTimeMillis(),now=System.currentTimeMillis()); uploaded++
    } catch(e:com.stan.lightphotobackup.pairing.AuthorizationExpiredException) { db.records().updateState(item.id,BackupStatus.RETRYABLE_FAILURE,errorCode="authorization_expired",errorMessage="Account connection expired",now=System.currentTimeMillis());failed++;authorizationExpired=true;break
    } catch(e:java.io.FileNotFoundException) { db.records().updateState(item.id,BackupStatus.MISSING_LOCAL_FILE,errorCode="local_missing",errorMessage="Local photo is no longer available",now=System.currentTimeMillis()); failed++

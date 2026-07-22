@@ -12,6 +12,10 @@
 # Android local config
 local.properties
 
+# Android Studio project state
+.idea/
+**/.idea/
+
 # Node
 node_modules/
 dist/

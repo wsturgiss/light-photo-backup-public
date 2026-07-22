@@ -31,6 +31,8 @@ The complete flow is working on a Light Phone III:
 - Room keeps a durable local ledger and prevents duplicate uploads.
 - Periodic frequency can be set to 15 minutes, 30 minutes, 1 hour, 6 hours, or daily.
 - Wi-Fi-only backup is the default; a persistent cellular setting and one-time cellular action are available.
+- Choose one image backup provider during account setup. The choice is locked for that installation once setup begins.
+- Google Photos and Immich are supported. Immich connects directly to your server with a personal API key stored encrypted on the phone.
 
 The public source tree intentionally has no auth-server URL configured. A first build therefore opens in the safe **Server not configured** state. Each operator must deploy a server and set its URL in ignored `android/local.properties` before pairing or uploading.
 
@@ -221,6 +223,15 @@ The phone never receives the Google refresh token. It receives a random server c
 - Frequency choices are minimum intervals; LightOS and Android may run later.
 - **Last backup details** shows counts, last scan, last error, and non-sensitive diagnostics.
 - **Disconnect account** invalidates the device credential and removes server-held token material.
+
+### Immich setup
+
+1. Before connecting an account, select **Immich** as the image backup provider.
+2. In Immich, create a personal API key with permission to upload assets.
+3. Choose **Configure Immich** in the app and enter the base server URL, such as `https://photos.example.com`, plus the API key.
+4. The app validates the key with Immich before storing the server URL and key using Android Keystore-backed encryption.
+
+Immich uploads go directly from the phone to `POST /api/assets`; the Google auth server is not used. Use HTTPS for a remotely reachable server. To use a different provider after setup has begun, clear the app's data and configure it again before connecting.
 
 Useful logs:
 

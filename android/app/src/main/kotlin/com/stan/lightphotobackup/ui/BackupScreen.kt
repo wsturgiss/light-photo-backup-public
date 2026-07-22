@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,6 +15,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.stan.lightphotobackup.BuildConfig
+import com.stan.lightphotobackup.backup.BackupProvider
 import com.stan.lightphotobackup.database.BackupStatus
 import com.stan.lightphotobackup.settings.PERIODIC_FREQUENCY_MINUTES
 import com.thelightphone.sdk.ui.*
@@ -115,6 +118,29 @@ private fun frequencyLabel(minutes: Int) = when (minutes) {
 }
 
 @Composable
+private fun ProviderRow(provider: BackupProvider, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (enabled) Modifier.lightClickable(onClickLabel = "${provider.displayName}, ${if (selected) "selected" else "not selected"}", onClick = onClick) else Modifier)
+            .padding(start = 2.25f.gridUnitsAsDp(), top = .4f.gridUnitsAsDp(), bottom = .4f.gridUnitsAsDp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LightIcon(if (selected) LightIcons.SELECT_ON else LightIcons.SELECT_OFF, size = .7f, contentDescription = null)
+        Spacer(Modifier.width(.55f.gridUnitsAsDp()))
+        LightText(provider.displayName, LightTextVariant.Copy)
+    }
+}
+
+@Composable
+private fun ProviderSection(state: BackupUiState, vm: BackupViewModel) {
+    SectionLabel("Image backup provider")
+    BackupProvider.available.forEach { provider ->
+        ProviderRow(provider, state.provider == provider, true) { vm.provider(provider) }
+    }
+}
+
+@Composable
 private fun FrequencyRow(minutes: Int, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
@@ -169,6 +195,8 @@ private fun waitingCount(state: BackupUiState) = state.counts
     }
     .values.sum()
 
+private fun failedCount(state: BackupUiState) = (state.counts[BackupStatus.RETRYABLE_FAILURE] ?: 0) + (state.counts[BackupStatus.PERMANENT_FAILURE] ?: 0)
+
 private fun statusText(state: BackupUiState, waiting: Int) = when (state.manualStatus) {
     ManualStatus.STARTING -> "Starting backup"
     ManualStatus.WAITING_FOR_NETWORK -> "Waiting for network"
@@ -176,7 +204,11 @@ private fun statusText(state: BackupUiState, waiting: Int) = when (state.manualS
     ManualStatus.SUCCEEDED -> if (state.summary.uploaded > 0) "${state.summary.uploaded} photos backed up" else "Backup complete"
     ManualStatus.FAILED -> "Backup failed"
     ManualStatus.AUTHORIZATION_EXPIRED -> "Account connection expired"
-    ManualStatus.IDLE -> if (waiting == 0) "Up to date" else "Photos waiting"
+    ManualStatus.IDLE -> when {
+        failedCount(state) > 0 -> "Backup needs attention"
+        waiting == 0 -> "Up to date"
+        else -> "Photos waiting"
+    }
 }
 
 @Composable
@@ -185,6 +217,7 @@ fun BackupScreen(
     access: PhotoAccess,
     requestPermission: () -> Unit,
     details: () -> Unit,
+    configureImmich: () -> Unit,
     vm: BackupViewModel,
 ) {
     val waiting = waitingCount(state)
@@ -193,7 +226,7 @@ fun BackupScreen(
         access == PhotoAccess.NONE -> LightBarButton.Text("Allow photo access", onClick = requestPermission)
         !state.configured -> null
         state.pairing != null -> LightBarButton.Text("Cancel", onClick = vm::cancelPairing)
-        !state.connected -> LightBarButton.Text("Connect account", onClick = vm::pair)
+        !state.connected -> LightBarButton.Text(if (state.provider == BackupProvider.IMMICH) "Configure Immich" else "Connect account", onClick = if (state.provider == BackupProvider.IMMICH) configureImmich else vm::pair)
         state.running -> LightBarButton.Text("Stop backup", onClick = vm::stop)
         else -> LightBarButton.Text("BACK UP NOW", onClick = { vm.backUpNow() })
     }
@@ -212,12 +245,13 @@ fun BackupScreen(
                 "Photo Backup needs full permission to read camera photos so it can upload them.",
             )
 
-            !state.configured -> BodyMessage(
+            state.provider == BackupProvider.GOOGLE_PHOTOS && !state.configured -> BodyMessage(
                 "Server not configured",
                 "Set PHOTO_BACKUP_AUTH_SERVER_URL and rebuild the app.",
             )
 
-            state.pairing != null -> {
+            state.provider == BackupProvider.GOOGLE_PHOTOS && state.pairing != null -> {
+                ProviderSection(state, vm)
                 BodyMessage("Connect Google account", "On another device, open:")
                 Spacer(Modifier.height(.6f.gridUnitsAsDp()))
                 SelectionContainer {
@@ -232,12 +266,22 @@ fun BackupScreen(
                 LightText("Waiting for connection", LightTextVariant.Detail, lighten = true)
             }
 
-            !state.connected -> BodyMessage(
-                "Not connected",
-                state.pairingError ?: "Connect your Google account to begin automatic backup.",
-            )
+            !state.connected -> {
+                ProviderSection(state, vm)
+                BodyMessage(
+                    if (state.provider == BackupProvider.IMMICH) "Immich not connected" else "Not connected",
+                    state.pairingError ?: if (state.provider == BackupProvider.IMMICH) "Configure your Immich server and API key to begin automatic backup." else "Connect your Google account to begin automatic backup.",
+                )
+            }
 
             else -> {
+                InformationRow("Provider", state.provider.displayName)
+                InformationRow("Status", statusText(state, waiting))
+                InformationRow("Photos waiting", waiting.toString())
+                if (failedCount(state) > 0) {
+                    ActionRow("Retry failed", vm::retry)
+                }
+                Spacer(Modifier.height(.8f.gridUnitsAsDp()))
                 ToggleRow("Back up over cellular", state.cellular) {
                     vm.cellular(!state.cellular)
                 }
@@ -256,15 +300,34 @@ fun BackupScreen(
                 }
                 ActionRow("Last backup details", details)
                 Spacer(Modifier.height(.8f.gridUnitsAsDp()))
-                InformationRow("Status", statusText(state, waiting))
                 InformationRow("Last backup", state.summary.lastSuccessMillis?.let(::formatDate) ?: "Not yet")
-                InformationRow("Photos waiting", waiting.toString())
                 InformationRow(
                     "Account",
                     if (state.manualStatus == ManualStatus.AUTHORIZATION_EXPIRED) "Reconnect" else "Connected",
                 )
                 ActionRow("Disconnect account", vm::disconnect)
             }
+        }
+    }
+}
+
+@Composable
+fun ImmichSetupScreen(state: BackupUiState, back: () -> Unit, vm: BackupViewModel) {
+    var serverUrl by remember { mutableStateOf("") }
+    var apiKey by remember { mutableStateOf("") }
+    ScreenFrame(
+        title = "Connect Immich",
+        leftButton = LightBarButton.LightIcon(LightIcons.BACK, onClick = back),
+        bottomItems = listOf(LightBarButton.Text("Connect", onClick = { vm.configureImmich(serverUrl, apiKey) })),
+    ) {
+        BodyMessage("Immich server", "Enter your Immich server URL and an API key from its API Keys settings.")
+        Spacer(Modifier.height(.8f.gridUnitsAsDp()))
+        OutlinedTextField(value = serverUrl, onValueChange = { serverUrl = it }, label = { LightText("Server URL", LightTextVariant.Detail) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(.6f.gridUnitsAsDp()))
+        OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, label = { LightText("API key", LightTextVariant.Detail) }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        state.pairingError?.let { error ->
+            Spacer(Modifier.height(.8f.gridUnitsAsDp()))
+            LightText(error, LightTextVariant.Detail, lighten = true)
         }
     }
 }
