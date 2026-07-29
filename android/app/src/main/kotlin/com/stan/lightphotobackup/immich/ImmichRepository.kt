@@ -40,7 +40,7 @@ class ImmichRepository(private val api: ImmichApi, private val store: SecureCred
         fun normalizeUrl(value: String): String {
             val input = value.trim().trimEnd('/')
             val url = if (input.contains("://")) input else "https://$input"
-            require(url.startsWith("https://") || url.startsWith("http://")) { "Use an http:// or https:// server URL" }
+            require(url.startsWith("https://")) { "Use an https:// server URL" }
             return url
         }
     }

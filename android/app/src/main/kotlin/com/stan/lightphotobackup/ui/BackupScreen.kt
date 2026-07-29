@@ -224,7 +224,7 @@ fun BackupScreen(
     val bottomAction = when {
         access == PhotoAccess.LIMITED -> LightBarButton.Text("Allow all photo access", onClick = requestPermission)
         access == PhotoAccess.NONE -> LightBarButton.Text("Allow photo access", onClick = requestPermission)
-        !state.configured -> null
+        state.provider == BackupProvider.GOOGLE_PHOTOS && !state.configured -> null
         state.pairing != null -> LightBarButton.Text("Cancel", onClick = vm::cancelPairing)
         !state.connected -> LightBarButton.Text(if (state.provider == BackupProvider.IMMICH) "Configure Immich" else "Connect account", onClick = if (state.provider == BackupProvider.IMMICH) configureImmich else vm::pair)
         state.running -> LightBarButton.Text("Stop backup", onClick = vm::stop)
