@@ -33,6 +33,7 @@ class BackupViewModel(app:Application):AndroidViewModel(app){
  fun periodicMinutes(value:Int){viewModelScope.launch{c.settings.periodicMinutes(value);BackupScheduler.periodic(getApplication(),state.value.cellular,state.value.periodic,value)}}
  fun provider(value:BackupProvider){viewModelScope.launch{if(!c.pairing.connected()&&!c.immich.connected())c.settings.unlockProvider();c.settings.provider(value);Log.i("PhotoBackupImmich","provider selected=$value")}}
  fun configureImmich(baseUrl:String,apiKey:String,allowHttp:Boolean){viewModelScope.launch{Log.i("PhotoBackupImmich","validating server");runCatching{c.immich.configure(baseUrl,apiKey,allowHttp)}.onSuccess{c.settings.lockProvider();transient.value=transient.value.copy(error=null);Log.i("PhotoBackupImmich","server validation succeeded")}.onFailure{transient.value=transient.value.copy(error=it.message?:"Unable to connect to Immich");Log.w("PhotoBackupImmich","server validation failed type=${it.javaClass.simpleName}")}}}
+ fun requeueImmich(){if(state.value.provider!=BackupProvider.IMMICH||state.value.running)return;viewModelScope.launch{val count=c.database.records().requeueAll(System.currentTimeMillis());Log.i("PhotoBackupImmich","requeued local photos count=$count")}}
  fun retry(){viewModelScope.launch{c.database.records().retryFailed();backUpNow()}}
  fun disconnect(){viewModelScope.launch{when(state.value.provider){BackupProvider.GOOGLE_PHOTOS->c.pairing.disconnect();BackupProvider.IMMICH->c.immich.disconnect()};c.settings.unlockProvider();transient.value=TransientState()}}
 }

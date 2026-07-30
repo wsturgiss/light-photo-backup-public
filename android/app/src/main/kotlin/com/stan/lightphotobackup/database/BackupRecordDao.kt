@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.Flow
  @Query("SELECT status,COUNT(*) count FROM backup_records GROUP BY status") fun counts():Flow<List<StatusCount>>
  @Query("SELECT COUNT(*) FROM backup_records WHERE status='UPLOADED'") suspend fun uploadedCount():Int
  @Query("SELECT COUNT(*) FROM backup_records WHERE status IN ('DISCOVERED','PENDING','RETRYABLE_FAILURE','AWAITING_MEDIA_CREATION')") suspend fun pendingCount():Int
- @Query("UPDATE backup_records SET status='PENDING',nextRetryMillis=NULL WHERE status IN ('RETRYABLE_FAILURE','PERMANENT_FAILURE')") suspend fun retryFailed()
- @Query("UPDATE backup_records SET status='PENDING',lastErrorCode='interrupted',lastErrorMessage='Previous upload was interrupted',updatedAtMillis=:now WHERE status='UPLOADING_BYTES'") suspend fun recoverInterrupted(now:Long):Int
+  @Query("UPDATE backup_records SET status='PENDING',nextRetryMillis=NULL WHERE status IN ('RETRYABLE_FAILURE','PERMANENT_FAILURE')") suspend fun retryFailed()
+  @Query("UPDATE backup_records SET status='PENDING',uploadToken=NULL,uploadTokenCreatedAtMillis=NULL,nextRetryMillis=NULL,lastErrorCode=NULL,lastErrorMessage=NULL,updatedAtMillis=:now WHERE status!='MISSING_LOCAL_FILE'") suspend fun requeueAll(now:Long):Int
+  @Query("UPDATE backup_records SET status='PENDING',lastErrorCode='interrupted',lastErrorMessage='Previous upload was interrupted',updatedAtMillis=:now WHERE status='UPLOADING_BYTES'") suspend fun recoverInterrupted(now:Long):Int
  @Query("UPDATE backup_records SET sizeBytes=:size,updatedAtMillis=:now WHERE mediaStoreVolume=:volume AND mediaStoreId=:mediaId AND sizeBytes<=0 AND :size>0") suspend fun repairSize(volume:String,mediaId:Long,size:Long,now:Long):Int
 }
 data class StatusCount(val status:BackupStatus,val count:Int)

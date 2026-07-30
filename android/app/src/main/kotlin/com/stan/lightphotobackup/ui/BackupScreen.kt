@@ -281,6 +281,10 @@ fun BackupScreen(
                 if (state.manualStatus != ManualStatus.RUNNING) {
                     ActionRow("Back up now", vm::backUpNow)
                 }
+                if (state.provider == BackupProvider.IMMICH && !state.running) {
+                    ActionRow("Re-queue all photos", vm::requeueImmich)
+                    LightText("Requeues every local photo. Immich detects duplicates.", LightTextVariant.Detail, lighten = true)
+                }
                 if (failedCount(state) > 0) {
                     ActionRow("Retry failed", vm::retry)
                 }

@@ -233,6 +233,8 @@ The phone never receives the Google refresh token. It receives a random server c
 
 Immich uploads go directly from the phone to `POST /api/assets`; the Google auth server is not used. HTTPS is the default and recommended transport. HTTP is available only after explicit confirmation and exposes the API key and photos to others able to observe the network. To use a different provider after setup has begun, clear the app's data and configure it again before connecting.
 
+To manually reconcile after deleting assets from Immich, choose **Re-queue all photos**. This requeues the local upload history and relies on Immich's duplicate detection when the next backup runs; it is never performed automatically.
+
 Useful logs:
 
 ```bash
