@@ -228,10 +228,10 @@ The phone never receives the Google refresh token. It receives a random server c
 
 1. Before connecting an account, select **Immich** as the image backup provider.
 2. In Immich, create a personal API key with permission to upload assets.
-3. Choose **Configure Immich** in the app and enter the base server URL, such as `https://photos.example.com`, plus the API key.
+3. Choose **Configure Immich** in the app and enter the base server URL, such as `https://photos.example.com`, plus the API key. To use a trusted local HTTP server, enable **Allow unencrypted HTTP** first.
 4. The app validates the key with Immich before storing the server URL and key using Android Keystore-backed encryption.
 
-Immich uploads go directly from the phone to `POST /api/assets`; the Google auth server is not used. The server URL must use HTTPS. To use a different provider after setup has begun, clear the app's data and configure it again before connecting.
+Immich uploads go directly from the phone to `POST /api/assets`; the Google auth server is not used. HTTPS is the default and recommended transport. HTTP is available only after explicit confirmation and exposes the API key and photos to others able to observe the network. To use a different provider after setup has begun, clear the app's data and configure it again before connecting.
 
 Useful logs:
 

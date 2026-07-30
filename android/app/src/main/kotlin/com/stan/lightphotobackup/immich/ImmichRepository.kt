@@ -25,8 +25,8 @@ data class ImmichCredentials(val baseUrl: String, val apiKey: String)
 class ImmichRepository(private val api: ImmichApi, private val store: SecureCredentialStore) {
     fun connected() = store.getImmich() != null
 
-    suspend fun configure(baseUrl: String, apiKey: String) {
-        val credentials = ImmichCredentials(normalizeUrl(baseUrl), apiKey.trim())
+    suspend fun configure(baseUrl: String, apiKey: String, allowHttp: Boolean) {
+        val credentials = ImmichCredentials(normalizeUrl(baseUrl, allowHttp), apiKey.trim())
         require(credentials.apiKey.isNotEmpty()) { "API key is required" }
         withContext(Dispatchers.IO) { api.validate(credentials) }
         store.saveImmich(credentials)
@@ -37,10 +37,12 @@ class ImmichRepository(private val api: ImmichApi, private val store: SecureCred
     fun disconnect() = store.clearImmich()
 
     companion object {
-        fun normalizeUrl(value: String): String {
+        fun normalizeUrl(value: String, allowHttp: Boolean = false): String {
             val input = value.trim().trimEnd('/')
-            val url = if (input.contains("://")) input else "https://$input"
-            require(url.startsWith("https://")) { "Use an https:// server URL" }
+            val url = if (input.contains("://")) input else "${if (allowHttp) "http" else "https"}://$input"
+            require(url.startsWith("https://") || allowHttp && url.startsWith("http://")) {
+                "Use an https:// server URL or enable unencrypted HTTP"
+            }
             return url
         }
     }

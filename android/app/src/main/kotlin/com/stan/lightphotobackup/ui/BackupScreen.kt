@@ -228,7 +228,7 @@ fun BackupScreen(
         state.pairing != null -> LightBarButton.Text("Cancel", onClick = vm::cancelPairing)
         !state.connected -> LightBarButton.Text(if (state.provider == BackupProvider.IMMICH) "Configure Immich" else "Connect account", onClick = if (state.provider == BackupProvider.IMMICH) configureImmich else vm::pair)
         state.running -> LightBarButton.Text("Stop backup", onClick = vm::stop)
-        else -> LightBarButton.Text("BACK UP NOW", onClick = { vm.backUpNow() })
+        else -> null
     }
 
     ScreenFrame(
@@ -278,6 +278,9 @@ fun BackupScreen(
                 InformationRow("Provider", state.provider.displayName)
                 InformationRow("Status", statusText(state, waiting))
                 InformationRow("Photos waiting", waiting.toString())
+                if (state.manualStatus != ManualStatus.RUNNING) {
+                    ActionRow("Back up now", vm::backUpNow)
+                }
                 if (failedCount(state) > 0) {
                     ActionRow("Retry failed", vm::retry)
                 }
@@ -315,16 +318,20 @@ fun BackupScreen(
 fun ImmichSetupScreen(state: BackupUiState, back: () -> Unit, vm: BackupViewModel) {
     var serverUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
+    var allowHttp by remember { mutableStateOf(false) }
     ScreenFrame(
         title = "Connect Immich",
         leftButton = LightBarButton.LightIcon(LightIcons.BACK, onClick = back),
-        bottomItems = listOf(LightBarButton.Text("Connect", onClick = { vm.configureImmich(serverUrl, apiKey) })),
+        bottomItems = listOf(LightBarButton.Text("Connect", onClick = { vm.configureImmich(serverUrl, apiKey, allowHttp) })),
     ) {
         BodyMessage("Immich server", "Enter your Immich server URL and an API key from its API Keys settings.")
         Spacer(Modifier.height(.8f.gridUnitsAsDp()))
         OutlinedTextField(value = serverUrl, onValueChange = { serverUrl = it }, label = { LightText("Server URL", LightTextVariant.Detail) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(.6f.gridUnitsAsDp()))
         OutlinedTextField(value = apiKey, onValueChange = { apiKey = it }, label = { LightText("API key", LightTextVariant.Detail) }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(.8f.gridUnitsAsDp()))
+        ToggleRow("Allow unencrypted HTTP", allowHttp) { allowHttp = !allowHttp }
+        if (allowHttp) LightText("HTTP sends your API key and photos without encryption. Use it only on a trusted local network.", LightTextVariant.Detail, lighten = true)
         state.pairingError?.let { error ->
             Spacer(Modifier.height(.8f.gridUnitsAsDp()))
             LightText(error, LightTextVariant.Detail, lighten = true)
