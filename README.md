@@ -1,23 +1,25 @@
 # Photo Backup
 
-Photo Backup is a minimal, text-only Android application for Light Phone III that discovers eligible photos and appends them to the connected user's Google Photos library. It has no gallery, thumbnails, previews, downloads, deletion, or Google Photos browsing. It works without Google Play Services.
+Photo Backup is a minimal, text-only Android application for Light Phone III that discovers eligible photos and uploads them to Google Photos or Immich. It has no gallery, thumbnails, previews, downloads, deletion, or Google Photos browsing. It works without Google Play Services.
 
 This repository contains two components:
 
 - `android/`: the Light Phone application.
-- `auth-server/`: a small TypeScript service that handles Google OAuth and issues short-lived access tokens to the phone.
+- `auth-server/`: a small TypeScript service used only for Google OAuth and short-lived Google access tokens.
 
-The Android app cannot be used by itself. Each installation needs access to a configured auth server because Google web OAuth client secrets and refresh tokens must not be embedded in an APK.
+Google Photos installations need access to a configured auth server because Google web OAuth client secrets and refresh tokens must not be embedded in an APK. Immich uploads directly to the configured Immich server and does not use the auth server.
 
 ## Before you begin
 
-This is a self-hosted source project, not a universal APK download. Setting up your own copy means you will:
+This is a self-hosted source project, not a universal APK download. Setting up Google Photos means you will:
 
 1. fork or clone this repository;
 2. create a Google Cloud web OAuth client;
 3. deploy the included auth server with persistent storage and your private secrets;
 4. build the Android app with that server's HTTPS URL; and
 5. install the APK and pair your Google account.
+
+For Immich, build and install the Android app, then configure your Immich server URL and personal API key in the app. Google Cloud and auth-server setup are not required.
 
 No photo is uploaded during compilation or automated testing. Real uploads begin only after the phone is paired and a backup runs.
 
@@ -34,7 +36,7 @@ The complete flow is working on a Light Phone III:
 - Choose one image backup provider during account setup. The choice is locked for that installation once setup begins.
 - Google Photos and Immich are supported. Immich connects directly to your server with a personal API key stored encrypted on the phone.
 
-The public source tree intentionally has no auth-server URL configured. A first build therefore opens in the safe **Server not configured** state. Each operator must deploy a server and set its URL in ignored `android/local.properties` before pairing or uploading.
+The public source tree intentionally has no auth-server URL configured. A Google Photos build therefore opens in the safe **Server not configured** state until its operator deploys a server and sets its URL in ignored `android/local.properties`. Immich-only builds do not need an auth-server URL.
 
 ## Screenshots
 
@@ -171,6 +173,8 @@ sdk.dir=/absolute/path/to/your/Android/sdk
 PHOTO_BACKUP_AUTH_SERVER_URL=https://YOUR_SERVER
 ```
 
+`PHOTO_BACKUP_AUTH_SERVER_URL` is required only when using Google Photos. If you use `local.properties` for an Immich-only build, omit that property.
+
 Build and test:
 
 ```bash
@@ -222,13 +226,13 @@ The phone never receives the Google refresh token. It receives a random server c
 - **Periodic backup** enables background WorkManager scheduling.
 - Frequency choices are minimum intervals; LightOS and Android may run later.
 - **Last backup details** shows counts, last scan, last error, and non-sensitive diagnostics.
-- **Disconnect account** invalidates the device credential and removes server-held token material.
+- For Google Photos, **Disconnect account** invalidates the device credential and removes server-held token material. For Immich, it removes the encrypted server URL and API key from the phone.
 
 ### Immich setup
 
 1. Before connecting an account, select **Immich** as the image backup provider.
 2. In Immich, create a personal API key with permission to upload assets.
-3. Choose **Configure Immich** in the app and enter the base server URL, such as `https://photos.example.com`, plus the API key. To use a trusted local HTTP server, enable **Allow unencrypted HTTP** first.
+3. Choose **Configure Immich** in the app and enter the base server URL, such as `https://photos.example.com`, plus the API key. You may omit `https://`; HTTPS is assumed unless **Allow unencrypted HTTP** is enabled. To use a trusted local HTTP server, enable **Allow unencrypted HTTP** first.
 4. The app validates the key with Immich before storing the server URL and key using Android Keystore-backed encryption.
 
 Immich uploads go directly from the phone to `POST /api/assets`; the Google auth server is not used. HTTPS is the default and recommended transport. HTTP is available only after explicit confirmation and exposes the API key and photos to others able to observe the network. To use a different provider after setup has begun, clear the app's data and configure it again before connecting.
