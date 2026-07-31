@@ -84,10 +84,22 @@ class ImmichApi(private val resolver: ContentResolver, private val client: OkHtt
 
     private fun timestamp(value: Long?) = Instant.ofEpochMilli(value ?: System.currentTimeMillis()).toString()
     private fun url(base: String, path: String) = base.trimEnd('/') + path
-    private fun <T> execute(credentials: ImmichCredentials, request: Request, parse: (String) -> T): T = client.newCall(request).execute().use {
-        Log.i("PhotoBackupImmich", "server response HTTP ${it.code}")
-        if (it.code == 401 || it.code == 403) throw AuthorizationExpiredException()
-        if (!it.isSuccessful) throw UploadException("immich_http_${it.code}", "Immich returned HTTP ${it.code}", it.code == 408 || it.code == 429 || it.code >= 500, it.header("Retry-After")?.toLongOrNull()?.times(1000))
-        parse(it.body?.string().orEmpty())
+    private fun <T> execute(credentials: ImmichCredentials, request: Request, parse: (String) -> T): T = try {
+        client.newCall(request).execute().use {
+            Log.i("PhotoBackupImmich", "server response HTTP ${it.code}")
+            if (it.code == 401 || it.code == 403) throw AuthorizationExpiredException()
+            if (!it.isSuccessful) throw UploadException("immich_http_${it.code}", "Immich returned HTTP ${it.code}", it.code == 408 || it.code == 429 || it.code >= 500, it.header("Retry-After")?.toLongOrNull()?.times(1000))
+            parse(it.body?.string().orEmpty())
+        }
+    } catch (e: java.io.FileNotFoundException) {
+        throw e
+    } catch (e: UploadException) {
+        throw e
+    } catch (e: IOException) {
+        throw unreachable()
+    }
+
+    companion object {
+        fun unreachable() = UploadException("immich_unreachable", "Immich server is unreachable. Check the server URL and network.", true)
     }
 }

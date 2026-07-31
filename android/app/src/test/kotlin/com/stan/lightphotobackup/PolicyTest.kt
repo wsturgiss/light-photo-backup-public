@@ -9,6 +9,7 @@ import com.stan.lightphotobackup.ui.*
 import com.stan.lightphotobackup.backup.BackupScheduler
 import com.stan.lightphotobackup.backup.BackupProvider
 import com.stan.lightphotobackup.immich.ImmichRepository
+import com.stan.lightphotobackup.immich.ImmichApi
 import com.stan.lightphotobackup.settings.PERIODIC_FREQUENCY_MINUTES
 import com.stan.lightphotobackup.settings.validPeriodicMinutes
 import androidx.work.*
@@ -25,6 +26,7 @@ class PolicyTest {
  @Test fun volumesAndIdentityDeduplicate(){val photos=listOf(item(1,"external_primary","Pictures/Light/"),item(1,"sdcard","Pictures/Light/"),item(1,"external_primary","Pictures/Light/"));assertEquals(2,DiscoveryAccounting.deduplicateItems(photos).size);assertEquals(1,DiscoveryAccounting.newItemCount(photos,setOf("external_primary" to 1L)))}
  @Test fun existingRecordsAndCountsAggregate(){val photos=listOf(item(1,"v","Pictures/Light/"),item(2,"v","Pictures/Screenshots/"),item(2,"v","Pictures/Screenshots/"));assertEquals(FolderCounts(1,1),DiscoveryAccounting.itemCounts(photos));assertEquals(0,DiscoveryAccounting.newItemCount(photos,setOf("v" to 1L,"v" to 2L)))}
  @Test fun retryClassification(){assertTrue(GooglePhotosUploader.classify(429).retryable);assertTrue(GooglePhotosUploader.classify(503).retryable);assertFalse(GooglePhotosUploader.classify(403).retryable)}
+ @Test fun unreachableImmichServerIsRetryable(){val error=ImmichApi.unreachable();assertEquals("immich_unreachable",error.code);assertTrue(error.retryable)}
  @Test fun zeroMediaStoreSizeUsesStreamingLength(){assertEquals(-1L,uploadContentLength(0));assertEquals(-1L,uploadContentLength(-1));assertEquals(123L,uploadContentLength(123))}
  @Test fun stateAndDateUtilities(){assertTrue(BackupStatus.entries.contains(BackupStatus.AWAITING_MEDIA_CREATION));assertTrue(formatDate(0).isNotBlank())}
  @Test fun manualWorkReplacesStaleRequests(){assertEquals(ExistingWorkPolicy.REPLACE,BackupScheduler.manualPolicy);assertEquals(NetworkType.UNMETERED,BackupScheduler.manualNetworkType(false));assertEquals(NetworkType.CONNECTED,BackupScheduler.manualNetworkType(true))}

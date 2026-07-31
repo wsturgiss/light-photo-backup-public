@@ -2,7 +2,10 @@ package com.stan.lightphotobackup.ui
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -205,7 +208,7 @@ private fun statusText(state: BackupUiState, waiting: Int) = when (state.manualS
     ManualStatus.FAILED -> "Backup failed"
     ManualStatus.AUTHORIZATION_EXPIRED -> "Account connection expired"
     ManualStatus.IDLE -> when {
-        failedCount(state) > 0 -> "Backup needs attention"
+        failedCount(state) > 0 -> if (state.provider == BackupProvider.IMMICH) state.summary.lastError ?: "Backup needs attention" else "Backup needs attention"
         waiting == 0 -> "Up to date"
         else -> "Photos waiting"
     }
@@ -319,10 +322,15 @@ fun BackupScreen(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun ImmichSetupScreen(state: BackupUiState, back: () -> Unit, vm: BackupViewModel) {
     var serverUrl by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     var allowHttp by remember { mutableStateOf(false) }
+    val errorRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(state.pairingError) {
+        if (state.pairingError != null) errorRequester.bringIntoView()
+    }
     ScreenFrame(
         title = "Connect Immich",
         leftButton = LightBarButton.LightIcon(LightIcons.BACK, onClick = back),
@@ -338,7 +346,7 @@ fun ImmichSetupScreen(state: BackupUiState, back: () -> Unit, vm: BackupViewMode
         if (allowHttp) LightText("HTTP sends your API key and photos without encryption. Use it only on a trusted local network.", LightTextVariant.Detail, lighten = true)
         state.pairingError?.let { error ->
             Spacer(Modifier.height(.8f.gridUnitsAsDp()))
-            LightText(error, LightTextVariant.Detail, lighten = true)
+            LightText(error, LightTextVariant.Detail, lighten = true, modifier = Modifier.bringIntoViewRequester(errorRequester))
         }
     }
 }
